@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const path = require("path");
 const bcrypt = require("bcrypt");
 const fetch = require("node-fetch");
 const fs = require("fs");
@@ -22,7 +23,6 @@ const login = (req, res) => {
   })
     .then((response) => response.json())
     .then((data) => {
-      console.log(data);
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Credentials", true);
       res.setHeader(
@@ -32,13 +32,14 @@ const login = (req, res) => {
 
       if (!data.error) {
         const user = data.user;
-
-        console.log(password, user.password);
         bcrypt.compare(password, user.password).then((pwdsComparingRes) => {
           if (pwdsComparingRes === true) {
-            console.log("passwrods matched");
             const accessToken = jwt.sign(
-              { username: user.username, role: user.role },
+              {
+                firstname: user.firstname,
+                lastname: user.lastname,
+                role: user.role,
+              },
               ACCESS_TOKEN_SECRET
             );
             res.json({ accessToken, user });
@@ -47,7 +48,6 @@ const login = (req, res) => {
           }
         });
       } else {
-        console.log(data);
         res.json(data);
       }
     })
@@ -78,44 +78,49 @@ const register = (req, res) => {
 const uploadWork = (req, res) => {
   const { lesson, author } = req.body;
   const work = { ...req.file, lesson, author };
+  console.log(work);
 
   console.log("uploading");
   dbrequest("addWork", work)
-    .then((r) => {
-      console.log("work has uploaded successfuly");
-      console.log(r);
+    .then(() => {
+      res.json({ success: true });
     })
     .catch((e) => {
-      console.log(e);
+      res.json({ error: e });
     });
 };
 
 const getUserWorks = (req, res) => {
   const { id } = req.params;
-  console.log("get works for " + id);
   dbrequest(`getWorks/${id}`)
     .then((r) => {
-      console.log("got works of" + id);
-      console.log(r);
       res.json({ works: r });
     })
     .catch((e) => {
-      console.log(e);
+      res.json({ error: e });
+    });
+};
+
+const getLessonWorks = (req, res) => {
+  const { lessonName } = req.body;
+  dbrequest(`getLessonWorks`, { lessonName })
+    .then((r) => {
+      res.json({ works: r });
+    })
+    .catch((e) => {
       res.json({ error: e });
     });
 };
 
 const getUserNotes = (req, res) => {
   const { id } = req.params;
-  console.log(id);
-  console.log("get notes for " + id);
+
   dbrequest(`getNotes/${id}`)
     .then((r) => {
       console.log(r);
       res.json({ notes: r });
     })
     .catch((e) => {
-      console.log(e);
       res.json({ error: e });
     });
 };
@@ -124,11 +129,9 @@ const addNote = (req, res) => {
   const currentNote = req.body;
   dbrequest(`addNote`, currentNote)
     .then((r) => {
-      console.log(r);
       res.json({ notes: r });
     })
     .catch((e) => {
-      console.log(e);
       res.json({ error: e });
     });
 };
@@ -142,12 +145,29 @@ const removeNote = (req, res) => {
     .catch((err) => res.json({ error: err }));
 };
 
+const getWork = (req, res) => {
+  const { id } = req.params;
+  const filePath = path.join(__dirname, `../uploads/${id}`);
+  res.download(filePath);
+};
+
+const updateRate = (req, res) => {
+  dbrequest(`updateRate`, req.body)
+    .then((r) => {
+      res.json(r);
+    })
+    .catch((err) => res.json({ error: err }));
+};
+
 module.exports = {
   login,
   register,
   uploadWork,
   getUserWorks,
+  getLessonWorks,
   getUserNotes,
   addNote,
   removeNote,
+  getWork,
+  updateRate,
 };
